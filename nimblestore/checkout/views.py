@@ -3,6 +3,9 @@ from django.views import generic
 from rest_framework import viewsets
 from rest_framework.parsers import JSONParser
 from rest_framework.views import APIView
+from .models import Product
+from rest_framework.response import Response
+from .serializers import ProductSerializer
 
 
 class IndexView(generic.TemplateView):
@@ -13,8 +16,9 @@ class ProductListView(viewsets.ModelViewSet):
     """
     API endpoint that allows products to be listed.
     """
-
-    # TODO Your view code here
+    
+    queryset = Product.objects.all()
+    serializer_class = ProductSerializer
 
 
 class OrderView(APIView):
@@ -23,12 +27,40 @@ class OrderView(APIView):
 
     def post(self, request):
         """
-        API endpoint that calculates the order total.
+        API endpoint que calcula el total de la orden.
         """
-        print(request.data)
+        order_items = request.data
 
-        response_obj = {"total": 0}
+        if not isinstance(order_items, list):
+            return Response({'error': 'Formato de datos inválido. Se espera una lista de productos.'}, status=400)
 
-        # TODO Calculate the order total here
+        total = 0
+        for item in order_items:
+            product_name = item.get('product')
+            quantity = item.get('quantity')
 
-        return JsonResponse(response_obj, safe=False)
+            if not product_name or quantity is None:
+                return Response({'error': 'Cada producto debe tener un nombre y una cantidad.'}, status=400)
+
+            try:
+                quantity = int(quantity)
+            except ValueError:
+                return Response({'error': f'Cantidad inválida para el producto {product_name}.'}, status=400)
+
+            try:
+                product = Product.objects.get(name=product_name)
+            except Product.DoesNotExist:
+                return Response({'error': f'El producto {product_name} no existe.'}, status=404)
+
+            if product.quantity < quantity:
+                return Response({'error': f'No hay suficiente cantidad para el producto {product_name}.'}, status=400)
+
+            # Calcula el total
+            total += product.price * quantity
+
+            # Actualiza la cantidad del producto
+            product.quantity -= quantity
+            product.save()
+
+        response_obj = {"total": total}
+        return Response(response_obj, status=200)

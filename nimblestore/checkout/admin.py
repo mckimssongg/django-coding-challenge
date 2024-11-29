@@ -3,8 +3,8 @@ from django.contrib import admin
 from .models import Product
 
 
+@admin.register(Product)
 class ProductAdmin(admin.ModelAdmin):
-    pass
+    list_display = ('name', 'price', 'quantity')
 
-
-admin.site.register(Product, ProductAdmin)
+# admin.site.register(Product, ProductAdmin)
